@@ -1,0 +1,17 @@
+# Rust dependency license notices for pkgextract
+
+Generated from the pinned `pkgextract` Cargo.lock and each crate's license metadata/files by cargo-about.
+License choice for crates offering alternatives follows `packaging/cargo-about.toml`.
+
+{{#each licenses}}
+## {{{name}}} (`{{{id}}}`)
+
+Used by:
+{{#each used_by}}
+- `{{crate.name}}` {{crate.version}}
+{{/each}}
+
+```
+{{{text}}}
+```
+{{/each}}

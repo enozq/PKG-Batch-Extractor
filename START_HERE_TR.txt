@@ -1,0 +1,21 @@
+PKG Batch Extractor v1.0.0 — WINDOWS / LINUX / MACOS (macOS deneysel)
+
+1) ZIP'i bir klasore cikar.
+2) Kaynak koddan calistiriyorsan Python 3.11+ ve Tkinter kur. Windows ZIP ve Linux AppImage icin Python/Rust/pip gerekmez.
+3) Uygulamayi baslat:
+   Windows: run_windows.bat
+   Linux:   ./run_unix.sh
+   macOS:   ./run_unix.sh
+   (Alternatif: python3 run.py)
+4) Windows/Linux paketlerinde PKG motoru dahildir. Arayuzden Add PKGs ile dosyalari sec, Output directory belirle ve Start extraction'a bas.
+5) Ilerleme cubugu tamamlanan paket sayisini gosterir; tek paket icindeki yuzde ve ETA hesaplanmaz.
+6) Ctrl+O (macOS: Cmd+O) ile dosya ekle, Ctrl+Shift+O ile klasor sec. Basarisiz dosyalarda Retry failed; kayit icin Save log kullan.
+
+BUILD:
+   Windows: build_windows.bat -> dist/PKG-Batch-Extractor-Windows-x64.zip
+   Linux:   ./build_linux.sh  -> dist/PKG-Batch-Extractor-x86_64.AppImage
+   macOS:   ./build_macos.sh  -> dist/PKG-Batch-Extractor.dmg (deneysel)
+   GitHub Actions: Windows, Linux ve deneysel macOS derlemeleri
+
+NOT: Gercek PKG uyumlulugu test icin yasal/izinli bir PKG ornegi bulunmadiginda
+dogrulanamaz. Korumali veya desteklenmeyen PKG turleri cikarilamayabilir.

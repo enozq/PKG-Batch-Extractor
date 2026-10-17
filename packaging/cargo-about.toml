@@ -1,0 +1,19 @@
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "Unlicense",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "Unicode-3.0",
+    "0BSD",
+    "Zlib",
+    "Apache-2.0 WITH LLVM-exception",
+]
+
+[pkgextract.clarify]
+license = "Unlicense"
+
+[[pkgextract.clarify.files]]
+path = "LICENSE"
+license = "Unlicense"
+checksum = "5824988c61af36605903692fbd9f845ebe8f2322b87ba0173ef868b4566d2bb9"

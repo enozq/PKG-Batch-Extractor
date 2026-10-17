@@ -1,0 +1,234 @@
+name: Build portable Windows Linux macOS packages
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows-x64
+          - os: ubuntu-22.04
+            name: Linux-x64
+          - os: macos-15-intel
+            name: macOS-x64
+          - os: macos-15
+            name: macOS-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install pinned Rust license report tool
+        run: cargo install cargo-about --version 0.9.2 --locked --features cli
+      - name: Install Tcl/Tk and virtual display on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk tk-dev xvfb xauth
+      - name: Install Python build dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Run unit and synthetic-engine regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Exercise file selection, batch progress, retry, and log export
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python tools/gui_smoke.py
+      - name: Compile Python sources
+        run: python -m compileall -q src tests run.py build.py
+      - name: Build bundled pkgextract from tagged source (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'pkgextract-source'
+          git -c core.autocrlf=false clone --depth 1 --branch v0.0.1 https://github.com/paulomanrique/ps4-pkg-extractor.git $source
+          $revision = git -C $source rev-parse HEAD
+          if ($revision -ne 'f830abb76ef1cbb32c2f67c842a86187fa7f2d7c') { throw "Unexpected pkgextract source revision: $revision" }
+          cargo build --release --locked --manifest-path (Join-Path $source 'Cargo.toml')
+          "PKG_BATCH_EXTRACTOR_ENGINE=$source/target/release/pkgextract.exe" >> $env:GITHUB_ENV
+          "PKG_BATCH_EXTRACTOR_ENGINE_LICENSE=$source/LICENSE" >> $env:GITHUB_ENV
+          "PKG_BATCH_EXTRACTOR_ENGINE_LOCK=$source/Cargo.lock" >> $env:GITHUB_ENV
+          cargo about generate "$env:GITHUB_WORKSPACE/packaging/rust-third-party.hbs" --config "$env:GITHUB_WORKSPACE/packaging/cargo-about.toml" --output-file "$source/pkgextract-RUST-THIRD-PARTY.md" --locked --manifest-path "$source/Cargo.toml" --fail
+          "PKG_BATCH_EXTRACTOR_RUST_NOTICES=$source/pkgextract-RUST-THIRD-PARTY.md" >> $env:GITHUB_ENV
+      - name: Build bundled pkgextract from tagged source (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: |
+          source="$RUNNER_TEMP/pkgextract-source"
+          git -c core.autocrlf=false clone --depth 1 --branch v0.0.1 https://github.com/paulomanrique/ps4-pkg-extractor.git "$source"
+          test "$(git -C "$source" rev-parse HEAD)" = f830abb76ef1cbb32c2f67c842a86187fa7f2d7c
+          cargo build --release --locked --manifest-path "$source/Cargo.toml"
+          echo "PKG_BATCH_EXTRACTOR_ENGINE=$source/target/release/pkgextract" >> "$GITHUB_ENV"
+          echo "PKG_BATCH_EXTRACTOR_ENGINE_LICENSE=$source/LICENSE" >> "$GITHUB_ENV"
+          echo "PKG_BATCH_EXTRACTOR_ENGINE_LOCK=$source/Cargo.lock" >> "$GITHUB_ENV"
+          cargo about generate "$GITHUB_WORKSPACE/packaging/rust-third-party.hbs" --config "$GITHUB_WORKSPACE/packaging/cargo-about.toml" --output-file "$source/pkgextract-RUST-THIRD-PARTY.md" --locked --manifest-path "$source/Cargo.toml" --fail
+          echo "PKG_BATCH_EXTRACTOR_RUST_NOTICES=$source/pkgextract-RUST-THIRD-PARTY.md" >> "$GITHUB_ENV"
+      - name: Verify bundled extraction engine
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& "$env:PKG_BATCH_EXTRACTOR_ENGINE" --help'
+      - name: Verify bundled extraction engine
+        if: runner.os != 'Windows'
+        run: '"$PKG_BATCH_EXTRACTOR_ENGINE" --help'
+      - name: Check Tkinter module
+        run: python -c "import tkinter; print('Tk', tkinter.TkVersion)"
+      - name: Build application and bundle the engine
+        run: python build.py
+      - name: Sign Windows executables when a publisher certificate is configured
+        if: runner.os == 'Windows' && vars.WINDOWS_SIGNING_ENABLED == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_SIGNING_PFX_BASE64 -or -not $env:WINDOWS_SIGNING_PFX_PASSWORD) { throw 'Windows signing is enabled but its certificate secrets are missing.' }
+          $pfx = Join-Path $env:RUNNER_TEMP 'publisher.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))
+          signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD dist/PKG-Batch-Extractor.exe
+          signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD dist/tools/pkgextract.exe
+          signtool.exe verify /pa /all dist/PKG-Batch-Extractor.exe
+          signtool.exe verify /pa /all dist/tools/pkgextract.exe
+          Remove-Item -LiteralPath $pfx -Force
+      - name: Sign and notarize macOS app when Apple credentials are configured
+        if: runner.os == 'macOS' && vars.APPLE_SIGNING_ENABLED == 'true'
+        env:
+          APPLE_SIGNING_P12_BASE64: ${{ secrets.APPLE_SIGNING_P12_BASE64 }}
+          APPLE_SIGNING_P12_PASSWORD: ${{ secrets.APPLE_SIGNING_P12_PASSWORD }}
+          APPLE_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_SIGNING_P12_BASE64" && test -n "$APPLE_SIGNING_P12_PASSWORD"
+          test -n "$APPLE_IDENTITY" && test -n "$APPLE_ID" && test -n "$APPLE_APP_PASSWORD" && test -n "$APPLE_TEAM_ID"
+          keychain="$RUNNER_TEMP/pkg-extractor-signing.keychain-db"
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          keychain_password="$(openssl rand -hex 24)"
+          printf '%s' "$APPLE_SIGNING_P12_BASE64" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$APPLE_SIGNING_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$APPLE_IDENTITY" dist/PKG-Batch-Extractor.app/Contents/Resources/tools/pkgextract
+          codesign --force --options runtime --timestamp --deep --keychain "$keychain" --sign "$APPLE_IDENTITY" dist/PKG-Batch-Extractor.app
+          codesign --verify --deep --strict --verbose=2 dist/PKG-Batch-Extractor.app
+          ditto -c -k --sequesterRsrc --keepParent dist/PKG-Batch-Extractor.app "$RUNNER_TEMP/PKG-Batch-Extractor-notary.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/PKG-Batch-Extractor-notary.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple dist/PKG-Batch-Extractor.app
+          xcrun stapler validate dist/PKG-Batch-Extractor.app
+          hdiutil create -volname PKG-Batch-Extractor -srcfolder dist/PKG-Batch-Extractor.app -ov -format UDZO dist/PKG-Batch-Extractor.dmg
+          xcrun notarytool submit dist/PKG-Batch-Extractor.dmg --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple dist/PKG-Batch-Extractor.dmg
+          xcrun stapler validate dist/PKG-Batch-Extractor.dmg
+          rm -f "$certificate"
+          security delete-keychain "$keychain"
+      - name: Build Linux AppImage
+        if: runner.os == 'Linux'
+        run: |
+          curl --fail --location --silent --show-error -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          curl --fail --location --silent --show-error -o appimage-runtime https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  appimage-runtime' | sha256sum --check
+          chmod +x appimagetool
+          chmod +x appimage-runtime
+          APPIMAGETOOL="$PWD/appimagetool" APPIMAGETOOL_RUNTIME_FILE="$PWD/appimage-runtime" sh package_linux_appimage.sh
+      - name: Verify extracted Linux package and launch its GUI
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/appimage-check"
+          cd "$RUNNER_TEMP/appimage-check"
+          "$GITHUB_WORKSPACE/dist/PKG-Batch-Extractor-x86_64.AppImage" --appimage-extract
+          test -x squashfs-root/usr/lib/pkg-batch-extractor/tools/pkgextract
+          test -s squashfs-root/usr/share/licenses/pkg-batch-extractor/pkgextract-RUST-THIRD-PARTY.md
+          test -s squashfs-root/usr/share/licenses/pkg-batch-extractor/licenses/TkDND-license.terms
+          test -s squashfs-root/usr/share/licenses/pkg-batch-extractor/licenses/Python-LICENSE.txt
+          test -s squashfs-root/usr/share/licenses/pkg-batch-extractor/licenses/Tcl-license.terms
+          test -s squashfs-root/usr/share/licenses/pkg-batch-extractor/licenses/PyInstaller-COPYING.txt
+          squashfs-root/usr/lib/pkg-batch-extractor/tools/pkgextract --help
+          set +e
+          env PATH=/usr/bin:/bin APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a timeout 8s "$GITHUB_WORKSPACE/dist/PKG-Batch-Extractor-x86_64.AppImage"
+          result=$?
+          set -e
+          if [ "$result" -ne 124 ]; then
+            echo "Packaged GUI did not stay open under Xvfb (exit $result)."
+            exit 1
+          fi
+      - name: Archive portable Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/PKG-Batch-Extractor.exe,dist/tools,dist/licenses,dist/THIRD_PARTY.md,dist/LICENSE,dist/pkgextract-LICENSE.txt,dist/pkgextract-Cargo.lock,dist/pkgextract-RUST-THIRD-PARTY.md -DestinationPath dist/PKG-Batch-Extractor-${{ matrix.name }}.zip
+      - name: Verify extracted Windows package and launch portable GUI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $portable = Join-Path $env:RUNNER_TEMP 'portable-check'
+          New-Item -ItemType Directory -Force $portable | Out-Null
+          Expand-Archive -LiteralPath "dist/PKG-Batch-Extractor-${{ matrix.name }}.zip" -DestinationPath $portable
+          if (-not (Test-Path (Join-Path $portable 'pkgextract-RUST-THIRD-PARTY.md'))) { throw 'Rust dependency license notices are missing from the portable ZIP.' }
+          if (-not (Test-Path (Join-Path $portable 'licenses/TkDND-license.terms'))) { throw 'TkDND license is missing from the portable ZIP.' }
+          if (-not (Test-Path (Join-Path $portable 'licenses/Python-LICENSE.txt'))) { throw 'Python license is missing from the portable ZIP.' }
+          if (-not (Test-Path (Join-Path $portable 'licenses/Tcl-license.terms'))) { throw 'Tcl license is missing from the portable ZIP.' }
+          if (-not (Test-Path (Join-Path $portable 'licenses/PyInstaller-COPYING.txt'))) { throw 'PyInstaller license terms are missing from the portable ZIP.' }
+          $process = $null
+          $previousPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            & (Join-Path $portable 'tools/pkgextract.exe') --help
+            $process = Start-Process -FilePath (Join-Path $portable 'PKG-Batch-Extractor.exe') -WorkingDirectory $portable -PassThru
+            if (-not $process.WaitForInputIdle(20000)) { throw 'Portable GUI did not become responsive within 20 seconds.' }
+            Start-Sleep -Seconds 2
+            $process.Refresh()
+            if ($process.HasExited) { throw 'Portable GUI exited during startup.' }
+          } finally {
+            if ($process -and -not $process.HasExited) { $process.Kill(); $process.WaitForExit(10000) | Out-Null }
+            $env:PATH = $previousPath
+          }
+      - name: Verify macOS DMG and bundled engine
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil verify dist/PKG-Batch-Extractor.dmg
+          mount_point="$RUNNER_TEMP/pkg-extractor-dmg"
+          mkdir -p "$mount_point"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" dist/PKG-Batch-Extractor.dmg
+          trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true' EXIT
+          app="$mount_point/PKG-Batch-Extractor.app"
+          "$app/Contents/Resources/tools/pkgextract" --help
+          test -f "$app/Contents/Resources/THIRD_PARTY.md"
+          test -f "$app/Contents/Resources/pkgextract-LICENSE.txt"
+          APP_PATH="$app/Contents/MacOS/PKG-Batch-Extractor" python -c 'import os,subprocess,time; e=dict(os.environ,PATH="/usr/bin:/bin:/usr/sbin:/sbin"); p=subprocess.Popen([os.environ["APP_PATH"]],env=e); time.sleep(5); status=p.poll(); p.terminate() if status is None else None; p.wait(timeout=10); assert status is None, f"macOS GUI exited during startup: {status}"'
+          hdiutil detach "$mount_point"
+          trap - EXIT
+      - name: Archive Linux AppImage
+        if: runner.os == 'Linux'
+        run: tar -czf dist/PKG-Batch-Extractor-${{ matrix.name }}.tar.gz -C dist PKG-Batch-Extractor-x86_64.AppImage
+      - name: Archive macOS app bundle
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent dist/PKG-Batch-Extractor.app dist/PKG-Batch-Extractor-${{ matrix.name }}.zip
+      - name: Upload Windows package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKG-Batch-Extractor-${{ matrix.name }}
+          path: |
+            dist/PKG-Batch-Extractor.exe
+            dist/PKG-Batch-Extractor-${{ matrix.name }}.zip
+      - name: Upload Linux package
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKG-Batch-Extractor-${{ matrix.name }}
+          path: |
+            dist/PKG-Batch-Extractor-x86_64.AppImage
+            dist/PKG-Batch-Extractor-${{ matrix.name }}.tar.gz
+      - name: Upload macOS packages
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKG-Batch-Extractor-${{ matrix.name }}
+          path: |
+            dist/PKG-Batch-Extractor.dmg
+            dist/PKG-Batch-Extractor-${{ matrix.name }}.zip

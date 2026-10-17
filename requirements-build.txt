@@ -1,0 +1,2 @@
+pyinstaller>=6.10,<7
+tkinterdnd2==0.6.4

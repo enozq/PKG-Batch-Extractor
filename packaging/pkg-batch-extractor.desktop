@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PKG Batch Extractor
+Comment=Extract multiple PS4 PKG files with a user-supplied engine
+Exec=PKG-Batch-Extractor
+Icon=pkg-batch-extractor
+Terminal=false
+Categories=Utility;

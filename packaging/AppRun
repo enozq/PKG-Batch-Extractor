@@ -1,0 +1,5 @@
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+PKG_BATCH_EXTRACTOR_TOOLS="$HERE/usr/lib/pkg-batch-extractor/tools"
+export PKG_BATCH_EXTRACTOR_TOOLS
+exec "$HERE/usr/bin/PKG-Batch-Extractor" "$@"
