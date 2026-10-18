@@ -1,8 +1,10 @@
 import importlib.util
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +15,25 @@ spec.loader.exec_module(module)
 
 
 class BuildCommandTests(unittest.TestCase):
+    def test_workflow_actions_are_sha_pinned_with_read_only_checkout(self):
+        for filename in ('.github/workflows/ci.yml', '.github/workflows/build-platforms.yml'):
+            workflow = (root / filename).read_text(encoding='utf-8')
+            uses = re.findall(r'^\s*-\s*uses:\s*([^\s#]+)', workflow, re.MULTILINE)
+            self.assertTrue(uses, filename)
+            self.assertTrue(all(re.search(r'@[0-9a-f]{40}$', action) for action in uses), uses)
+            self.assertRegex(workflow, r'(?m)^permissions:\s*\n\s+contents:\s+read\s*$')
+            self.assertIn('persist-credentials: false', workflow)
+
+    def test_pkgextract_lockfile_contains_patched_rustsec_versions(self):
+        lock = tomllib.loads((root / 'packaging' / 'pkgextract-Cargo.lock').read_text(encoding='utf-8'))
+        versions = {package['name']: package['version'] for package in lock['package']}
+        self.assertEqual(versions['crossbeam-epoch'], '0.9.20')
+        self.assertEqual(versions['anyhow'], '1.0.103')
+        self.assertEqual(versions['memmap2'], '0.9.11')
+        self.assertEqual(versions['rand'], '0.8.6')
+        for script in ('build_windows.bat', 'build_linux.sh', 'build_macos.sh'):
+            self.assertIn('pkgextract-Cargo.lock', (root / script).read_text(encoding='utf-8'))
+
     def test_windows_build_uses_clean_staging_and_remaps_user_path(self):
         script = (root / 'build_windows.bat').read_text(encoding='utf-8')
         self.assertIn('--remap-path-prefix=%USERPROFILE%=<USER>', script)

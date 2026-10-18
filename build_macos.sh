@@ -12,6 +12,7 @@ build_root=$(mktemp -d)
 trap 'rm -rf "$build_root"' EXIT HUP INT TERM
 git -c core.autocrlf=false clone --depth 1 --branch v0.0.1 https://github.com/paulomanrique/ps4-pkg-extractor.git "$build_root/pkgextract-source"
 test "$(git -C "$build_root/pkgextract-source" rev-parse HEAD)" = f830abb76ef1cbb32c2f67c842a86187fa7f2d7c
+cp "$PWD/packaging/pkgextract-Cargo.lock" "$build_root/pkgextract-source/Cargo.lock"
 cargo build --release --locked --manifest-path "$build_root/pkgextract-source/Cargo.toml"
 export PKG_BATCH_EXTRACTOR_ENGINE="$build_root/pkgextract-source/target/release/pkgextract"
 export PKG_BATCH_EXTRACTOR_ENGINE_LICENSE="$build_root/pkgextract-source/LICENSE"

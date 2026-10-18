@@ -74,7 +74,7 @@ class BackendTests(unittest.TestCase):
             appimage = Path(td) / 'PKG-Batch-Extractor.AppImage'
             appimage.write_bytes(b'binary')
             with patch.object(sys, 'frozen', True, create=True), \
-                 patch('pkg_batch_extractor.backend.sys.executable', '/tmp/extracted/app'), \
+                 patch('pkg_batch_extractor.backend.sys.executable', str(Path(td) / 'extracted' / 'app')), \
                  patch('pkg_batch_extractor.backend.sys.platform', 'linux'), \
                  patch.dict('pkg_batch_extractor.backend.os.environ', {'APPIMAGE': str(appimage)}):
                 self.assertEqual(application_directory(), Path(td))

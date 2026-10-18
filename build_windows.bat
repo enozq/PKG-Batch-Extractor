@@ -62,6 +62,8 @@ if not "%PKG_BUILD_REVISION%"=="f830abb76ef1cbb32c2f67c842a86187fa7f2d7c" (
   echo Unexpected pkgextract source revision: %PKG_BUILD_REVISION%
   goto error
 )
+copy /y "%~dp0packaging\pkgextract-Cargo.lock" "%PKG_BUILD_ROOT%\source\Cargo.lock" >nul
+if errorlevel 1 goto error
 
 rem Keep compiler diagnostics reproducible without embedding the builder's user path.
 set "RUSTFLAGS=-C target-feature=+crt-static --remap-path-prefix=%USERPROFILE%=<USER>"
