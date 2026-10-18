@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pkg-batch-extractor"
-version = "1.0.0"
+version = "1.0.1"
 description = "Lightweight multi-PKG extraction desktop interface"
 readme = "README.md"
 license = { file = "LICENSE" }

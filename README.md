@@ -1,10 +1,10 @@
 # PKG Batch Extractor
 
-**PKG Batch Extractor 1.0.0** is a desktop batch-extraction tool for PlayStation 4 `.pkg` files. Select several packages, choose an output folder, and follow their extraction status in one window.
+**PKG Batch Extractor 1.0.1** is a desktop batch-extraction tool for PlayStation 4 `.pkg` files. Select several packages, choose an output folder, and follow their extraction status in one window.
 
-![PKG Batch Extractor 1.0.0 showing a sample package queue](docs/screenshot.png)
+![PKG Batch Extractor interface example](docs/screenshot.png)
 
-The screenshot shows the current interface with sample file names. It does not show a real PKG extraction.
+The screenshot is an interface example captured for v1.0.0; the v1.0.1 release keeps the same interface and extraction features. Its sample file names do not represent a real PKG extraction.
 
 ## Platform support
 
@@ -12,13 +12,13 @@ The screenshot shows the current interface with sample file names. It does not s
 | --- | --- | --- | --- |
 | Windows 10/11, x64 | **Official** | Portable ZIP containing the app `.exe` and `tools/pkgextract.exe` | No Python, Rust, pip, or separate engine installation |
 | Linux, x86-64 | **Official** | AppImage containing the app and native `pkgextract` engine | No Python, Rust, pip, or separate engine installation; a compatible desktop/glibc environment is required |
-| macOS, Intel and Apple Silicon | **Experimental** | Architecture-specific `.app` / `.dmg` builds when available | Not a supported 1.0.0 target; behavior and packaging may vary by macOS release |
+| macOS, Intel and Apple Silicon | **Experimental** | Architecture-specific `.app` / `.dmg` builds when available | Not a supported 1.0.1 target; behavior and packaging may vary by macOS release |
 
 Windows and Linux packages are intended to run offline. The build process bundles the Python/Tk runtime and the native Rust-based `pkgextract` engine. End users do not need development tools. Source-code runs and local builds have separate requirements below.
 
 ### Linux compatibility
 
-The official Linux build target and the v1.0.0 AppImage are x86-64 builds made on Ubuntu 22.04.5 (glibc 2.35). The AppImage was opened and its bundled extractor and GUI startup were checked on that baseline. This is the compatibility baseline, not a guarantee for every distribution. AppImages are not guaranteed to run on Alpine or other musl-based systems, ARM Linux, or systems with glibc older than 2.35 or incompatible graphics libraries. Desktop Linux systems normally provide FUSE; if AppImage launch reports a FUSE error, try:
+The official Linux build target and the v1.0.1 AppImage are x86-64 builds made on Ubuntu 22.04.5 (glibc 2.35). The AppImage was opened and its bundled extractor and GUI startup were checked on that baseline. This is the compatibility baseline, not a guarantee for every distribution. AppImages are not guaranteed to run on Alpine or other musl-based systems, ARM Linux, or systems with glibc older than 2.35 or incompatible graphics libraries. Desktop Linux systems normally provide FUSE; if AppImage launch reports a FUSE error, try:
 
 ```sh
 ./PKG-Batch-Extractor-x86_64.AppImage --appimage-extract-and-run
@@ -58,7 +58,7 @@ The app and native extractor are inside the AppImage. No external Python, Rust, 
 
 ### macOS (experimental)
 
-Architecture-specific `.app` and `.dmg` builds may be produced by CI. They are experimental and are not part of the official 1.0.0 support promise. Unless a release explicitly says otherwise, assume they are unsigned/not notarized; Gatekeeper may block them. Do not bypass Gatekeeper for an untrusted build.
+Architecture-specific `.app` and `.dmg` builds may be produced by CI. They are experimental and are not part of the official 1.0.1 support promise. Unless a release explicitly says otherwise, assume they are unsigned/not notarized; Gatekeeper may block them. Do not bypass Gatekeeper for an untrusted build.
 
 ## PKG engine and compatibility
 

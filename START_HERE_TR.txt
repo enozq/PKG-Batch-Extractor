@@ -1,4 +1,4 @@
-PKG Batch Extractor v1.0.0 — WINDOWS / LINUX / MACOS (macOS deneysel)
+PKG Batch Extractor v1.0.1 — WINDOWS / LINUX / MACOS (macOS deneysel)
 
 1) ZIP'i bir klasore cikar.
 2) Kaynak koddan calistiriyorsan Python 3.11+ ve Tkinter kur. Windows ZIP ve Linux AppImage icin Python/Rust/pip gerekmez.

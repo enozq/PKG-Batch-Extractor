@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1 — Security and packaging maintenance (2026-10-18)
+
+- Updated application metadata and user-facing documentation to version 1.0.1; extraction behavior and supported features are unchanged.
+- Pinned the reviewed `pkgextract` Cargo lockfile for reproducible Windows and Linux builds and retained patched transitive dependency versions.
+- Hardened GitHub Actions by pinning third-party actions to reviewed commit SHAs, restricting workflow permissions, and disabling persisted checkout credentials.
+- Ensured the Windows portable ZIP stages only the Windows extractor and excludes stale cross-platform build output.
+- Preserved Rust and runtime third-party license notices in packages. Documented the unresolved upstream `rsa` Marvin timing advisory (RUSTSEC-2023-0071); no patched upstream release is available, and the desktop app uses the engine locally.
+- Replaced a fixed `/tmp` path in a test with a platform-neutral temporary-root path.
+- Rebuilt Windows and Linux release packages from the pinned engine lockfile.
+
 ## 1.0.0 — Stable Windows and Linux targets (2026-10-16)
 
 - Declared Windows 10/11 x64 and Linux x86-64 as official targets; macOS builds remain experimental.
