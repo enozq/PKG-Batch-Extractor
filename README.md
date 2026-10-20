@@ -84,7 +84,8 @@ Build scripts are `build_windows.bat`, `build_linux.sh`, and `build_macos.sh`. B
 
 ## Known limitations and verification
 
-- A real, authorized PS4 PKG fixture was not available for this release validation. Automated extraction tests use a synthetic CLI and do not establish compatibility with every real package.
+- **Real Windows PKG test (v1.0.1):** The project maintainer manually extracted a real PS4 PKG using the v1.0.1 Windows release, and the extracted game launched successfully.
+- **Automated tests:** 66 tests passed on Windows; 2 platform-specific tests were skipped. Automated extraction tests use synthetic fixtures and do not establish compatibility with every real package. Real PKG extraction on Linux and macOS has not been verified.
 - Windows and Linux are the official targets. Linux AppImage compatibility is limited to tested glibc-based desktop environments; Alpine/musl and ARM are out of scope.
 - Per-package byte percentage and ETA are not displayed because the GUI has no reliable total-output denominator from the bundled engine.
 - Drag-and-drop depends on the platform's TkDnD library; file and folder pickers remain available without it.
