@@ -53,7 +53,7 @@ class BackendTests(unittest.TestCase):
             executable = tools_dir / ('pkgextract.exe' if os.name == 'nt' else 'pkgextract')
             executable.write_bytes(b'dummy')
             with patch('pkg_batch_extractor.backend.application_directory', return_value=root):
-                self.assertEqual(discover_executable('pkgextract'), executable)
+                self.assertEqual(discover_executable('pkgextract'), executable.resolve())
 
     def test_discovery_prefers_native_binary(self):
         self.assertEqual(engine_filenames('pkgextract', windows=False), ('pkgextract',))
@@ -67,7 +67,7 @@ class BackendTests(unittest.TestCase):
             with patch.object(sys, 'frozen', True, create=True), \
                  patch('pkg_batch_extractor.backend.sys.executable', str(app_exe)), \
                  patch('pkg_batch_extractor.backend.sys.platform', 'darwin'):
-                self.assertEqual(application_directory(), Path(td))
+                self.assertEqual(application_directory(), Path(td).resolve())
 
     def test_linux_appimage_engine_directory(self):
         with tempfile.TemporaryDirectory() as td:
@@ -77,7 +77,7 @@ class BackendTests(unittest.TestCase):
                  patch('pkg_batch_extractor.backend.sys.executable', str(Path(td) / 'extracted' / 'app')), \
                  patch('pkg_batch_extractor.backend.sys.platform', 'linux'), \
                  patch.dict('pkg_batch_extractor.backend.os.environ', {'APPIMAGE': str(appimage)}):
-                self.assertEqual(application_directory(), Path(td))
+                self.assertEqual(application_directory(), Path(td).resolve())
 
     def test_bundled_engine_directory_override_is_discovered(self):
         with tempfile.TemporaryDirectory() as td:

@@ -64,8 +64,8 @@ class CoreTests(unittest.TestCase):
             for file in (one, two, junk):
                 file.write_bytes(b'fake data')
             found = collect_pkgs([one, one, two, junk, root / 'missing.pkg'])
-            self.assertEqual(found, [one, two])
-            self.assertEqual(set(scan_folder(root)), {one, two})
+            self.assertEqual(found, [one.resolve(), two.resolve()])
+            self.assertEqual(set(scan_folder(root)), {one.resolve(), two.resolve()})
 
     def test_output_collision_and_existing_folder(self):
         with tempfile.TemporaryDirectory() as td:

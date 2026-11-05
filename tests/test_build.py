@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from types import SimpleNamespace
 import tempfile
 import tomllib
 import unittest
@@ -175,9 +176,11 @@ class BuildCommandTests(unittest.TestCase):
                 'PKG_BATCH_EXTRACTOR_ENGINE_LOCK': str(lock_file),
                 'PKG_BATCH_EXTRACTOR_RUST_NOTICES': str(notices_file),
                 'PKG_BATCH_EXTRACTOR_DIST_DIR': str(output),
-            }), patch.object(module.sys, 'platform', 'win32'):
+            }), patch.object(module, 'sys', SimpleNamespace(
+                platform='win32', executable=sys.executable, base_prefix=sys.base_prefix
+            )):
                 def build(command, **_kwargs):
-                    self.assertEqual(command[command.index('--distpath') + 1], str(output))
+                    self.assertEqual(command[command.index('--distpath') + 1], str(output.resolve()))
                     (output / f'{module.APP_NAME}.exe').write_bytes(b'app')
                 with patch.object(module.subprocess, 'run', side_effect=build):
                     module.main()
